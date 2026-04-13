@@ -9,7 +9,7 @@ from trading.models.stock_model import Stocks  # Stock model
 from trading.models.user_model import Users  # User model
 from trading.models.portfolio_model import PortfolioModel
 from trading.utils.logger import configure_logger
-from trading.utils.api_utils import StockAPI
+from trading.utils.api_utils import get_current_price
 
 load_dotenv()
 
@@ -278,7 +278,7 @@ def create_app(config_class=ProductionConfig) -> Flask:
         """
         try:
             app.logger.info(f"Fetching current price for {ticker}")
-            price = StockAPI.get_current_price(ticker)
+            price = get_current_price(ticker)
             return make_response(jsonify({
                 "status": "success",
                 "ticker": ticker.upper(),
@@ -617,3 +617,10 @@ def create_app(config_class=ProductionConfig) -> Flask:
                 "message": "Internal error retrieving portfolio details",
                 "details": str(e)
             }), 500)
+
+    return app
+
+
+if __name__ == '__main__':
+    app = create_app()
+    app.run(debug=True)
