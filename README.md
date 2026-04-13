@@ -9,6 +9,8 @@ This Flask-based trading application allows users to register, log in, and manag
 
 ```bash
 cd trading
+python -m venv venv
+.\venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
