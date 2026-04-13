@@ -21,74 +21,58 @@ The server runs at `http://localhost:5000`.
 
 ## Demo Walkthrough
 
-The full flow below can be run in a terminal with `curl`. Cookies are saved to `cookies.txt` so the session persists across requests.
+The full flow below can be run in PowerShell with `curl.exe`. Cookies are saved to `cookies.txt` so the session persists across requests.
+
+> **Windows/PowerShell users:** Use `curl.exe` (not `curl`), keep everything on one line, and escape inner quotes with `\"`.
 
 **1. Health check**
-```bash
-curl http://localhost:5000/api/health
+```powershell
+curl.exe http://localhost:5000/api/health
 ```
 
 **2. Create a user**
-```bash
-curl -X PUT http://localhost:5000/api/create-user \
-  -H "Content-Type: application/json" \
-  -d '{"username": "alice", "password": "secret123"}'
+```powershell
+curl.exe -X PUT http://localhost:5000/api/create-user -H "Content-Type: application/json" -d "{\"username\": \"alice\", \"password\": \"secret123\"}"
 ```
 
 **3. Log in**
-```bash
-curl -X POST http://localhost:5000/api/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "alice", "password": "secret123"}' \
-  -c cookies.txt
+```powershell
+curl.exe -X POST http://localhost:5000/api/login -H "Content-Type: application/json" -d "{\"username\": \"alice\", \"password\": \"secret123\"}" -c cookies.txt
 ```
 
 **4. Add a stock to the system**
-```bash
-curl -X POST http://localhost:5000/api/create-stock \
-  -H "Content-Type: application/json" \
-  -d '{"ticker": "AAPL"}' \
-  -b cookies.txt
+```powershell
+curl.exe -X POST http://localhost:5000/api/create-stock -H "Content-Type: application/json" -d "{\"ticker\": \"AAPL\"}" -b cookies.txt
 ```
 
 **5. Check the current price**
-```bash
-curl http://localhost:5000/api/stock-price/AAPL \
-  -b cookies.txt
+```powershell
+curl.exe http://localhost:5000/api/stock-price/AAPL -b cookies.txt
 ```
 
 **6. Buy shares**
-```bash
-curl -X POST http://localhost:5000/api/portfolio/buy \
-  -H "Content-Type: application/json" \
-  -d '{"ticker": "AAPL", "shares": 5}' \
-  -b cookies.txt
+```powershell
+curl.exe -X POST http://localhost:5000/api/portfolio/buy -H "Content-Type: application/json" -d "{\"ticker\": \"AAPL\", \"shares\": 5}" -b cookies.txt
 ```
 
 **7. View portfolio**
-```bash
-curl http://localhost:5000/api/portfolio/details \
-  -b cookies.txt
+```powershell
+curl.exe http://localhost:5000/api/portfolio/details -b cookies.txt
 ```
 
 **8. Check total portfolio value**
-```bash
-curl http://localhost:5000/api/portfolio/value \
-  -b cookies.txt
+```powershell
+curl.exe http://localhost:5000/api/portfolio/value -b cookies.txt
 ```
 
 **9. Sell some shares**
-```bash
-curl -X POST http://localhost:5000/api/portfolio/sell \
-  -H "Content-Type: application/json" \
-  -d '{"ticker": "AAPL", "shares": 2}' \
-  -b cookies.txt
+```powershell
+curl.exe -X POST http://localhost:5000/api/portfolio/sell -H "Content-Type: application/json" -d "{\"ticker\": \"AAPL\", \"shares\": 2}" -b cookies.txt
 ```
 
 **10. Log out**
-```bash
-curl -X POST http://localhost:5000/api/logout \
-  -b cookies.txt
+```powershell
+curl.exe -X POST http://localhost:5000/api/logout -b cookies.txt
 ```
 
 > **Note:** Portfolio holdings are stored in memory and reset when the server restarts. Persisting them to the database is a known next step.
