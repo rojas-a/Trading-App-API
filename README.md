@@ -23,7 +23,7 @@ The server runs at `http://localhost:5000`.
 
 The full flow below can be run in PowerShell with `curl.exe`. Cookies are saved to `cookies.txt` so the session persists across requests.
 
-> **Windows/PowerShell users:** Use `curl.exe` (not `curl`), keep everything on one line, and escape inner quotes with `\"`.
+> **Tip:** Assign JSON to a `$body` variable using single quotes to avoid escaping issues in PowerShell.
 
 **1. Health check**
 ```powershell
@@ -32,17 +32,20 @@ curl.exe http://localhost:5000/api/health
 
 **2. Create a user**
 ```powershell
-curl.exe -X PUT http://localhost:5000/api/create-user -H "Content-Type: application/json" -d "{\"username\": \"alice\", \"password\": \"secret123\"}"
+$body = '{"username": "alice", "password": "secret123"}'
+curl.exe -X PUT http://localhost:5000/api/create-user -H "Content-Type: application/json" -d $body
 ```
 
 **3. Log in**
 ```powershell
-curl.exe -X POST http://localhost:5000/api/login -H "Content-Type: application/json" -d "{\"username\": \"alice\", \"password\": \"secret123\"}" -c cookies.txt
+$body = '{"username": "alice", "password": "secret123"}'
+curl.exe -X POST http://localhost:5000/api/login -H "Content-Type: application/json" -d $body -c cookies.txt
 ```
 
 **4. Add a stock to the system**
 ```powershell
-curl.exe -X POST http://localhost:5000/api/create-stock -H "Content-Type: application/json" -d "{\"ticker\": \"AAPL\"}" -b cookies.txt
+$body = '{"ticker": "AAPL"}'
+curl.exe -X POST http://localhost:5000/api/create-stock -H "Content-Type: application/json" -d $body -b cookies.txt
 ```
 
 **5. Check the current price**
@@ -52,7 +55,8 @@ curl.exe http://localhost:5000/api/stock-price/AAPL -b cookies.txt
 
 **6. Buy shares**
 ```powershell
-curl.exe -X POST http://localhost:5000/api/portfolio/buy -H "Content-Type: application/json" -d "{\"ticker\": \"AAPL\", \"shares\": 5}" -b cookies.txt
+$body = '{"ticker": "AAPL", "shares": 5}'
+curl.exe -X POST http://localhost:5000/api/portfolio/buy -H "Content-Type: application/json" -d $body -b cookies.txt
 ```
 
 **7. View portfolio**
@@ -67,7 +71,8 @@ curl.exe http://localhost:5000/api/portfolio/value -b cookies.txt
 
 **9. Sell some shares**
 ```powershell
-curl.exe -X POST http://localhost:5000/api/portfolio/sell -H "Content-Type: application/json" -d "{\"ticker\": \"AAPL\", \"shares\": 2}" -b cookies.txt
+$body = '{"ticker": "AAPL", "shares": 2}'
+curl.exe -X POST http://localhost:5000/api/portfolio/sell -H "Content-Type: application/json" -d $body -b cookies.txt
 ```
 
 **10. Log out**
