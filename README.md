@@ -1,7 +1,7 @@
 # Trading App API
 
 ## Overview
-This Flask-based trading application allows users to register, log in, and manage a virtual stock portfolio. Users can add stocks using ticker symbols, fetch real-time prices with the Alpha Vantage API, buy and sell shares, and calculate the total value of their holdings. Flask-Login is used for session management, and SQLAlchemy handles database interactions.
+This Flask-based trading application allows users to register, log in, and manage a virtual stock portfolio. Users can add stocks by ticker symbol, fetch real-time prices via the Alpha Vantage API, buy and sell shares, and calculate the total value of their holdings. Flask-Login handles session management, and SQLAlchemy handles database interactions.
 
 ---
 
@@ -21,7 +21,7 @@ The server runs at `http://localhost:5000`.
 
 ## Demo Walkthrough
 
-The full flow below can be run in PowerShell using `Invoke-RestMethod` (built into Windows — no extra tools needed). The `$session` variable carries the login cookie across requests.
+The full flow below can be run in PowerShell. The `$session` variable carries the login cookie across requests.
 
 **1. Health check**
 ```powershell
