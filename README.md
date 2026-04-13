@@ -21,63 +21,56 @@ The server runs at `http://localhost:5000`.
 
 ## Demo Walkthrough
 
-The full flow below can be run in PowerShell with `curl.exe`. Cookies are saved to `cookies.txt` so the session persists across requests.
-
-> **Tip:** Assign JSON to a `$body` variable using single quotes to avoid escaping issues in PowerShell.
+The full flow below can be run in PowerShell using `Invoke-RestMethod` (built into Windows — no extra tools needed). The `$session` variable carries the login cookie across requests.
 
 **1. Health check**
 ```powershell
-curl.exe http://localhost:5000/api/health
+Invoke-RestMethod -Uri "http://localhost:5000/api/health"
 ```
 
 **2. Create a user**
 ```powershell
-$body = '{"username": "alice", "password": "secret123"}'
-curl.exe -X PUT http://localhost:5000/api/create-user -H "Content-Type: application/json" -d $body
+Invoke-RestMethod -Method PUT -Uri "http://localhost:5000/api/create-user" -ContentType "application/json" -Body '{"username": "alice", "password": "secret123"}'
 ```
 
 **3. Log in**
 ```powershell
-$body = '{"username": "alice", "password": "secret123"}'
-curl.exe -X POST http://localhost:5000/api/login -H "Content-Type: application/json" -d $body -c cookies.txt
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/login" -ContentType "application/json" -Body '{"username": "alice", "password": "secret123"}' -SessionVariable session
 ```
 
 **4. Add a stock to the system**
 ```powershell
-$body = '{"ticker": "AAPL"}'
-curl.exe -X POST http://localhost:5000/api/create-stock -H "Content-Type: application/json" -d $body -b cookies.txt
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/create-stock" -ContentType "application/json" -Body '{"ticker": "AAPL"}' -WebSession $session
 ```
 
 **5. Check the current price**
 ```powershell
-curl.exe http://localhost:5000/api/stock-price/AAPL -b cookies.txt
+Invoke-RestMethod -Uri "http://localhost:5000/api/stock-price/AAPL" -WebSession $session
 ```
 
 **6. Buy shares**
 ```powershell
-$body = '{"ticker": "AAPL", "shares": 5}'
-curl.exe -X POST http://localhost:5000/api/portfolio/buy -H "Content-Type: application/json" -d $body -b cookies.txt
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/portfolio/buy" -ContentType "application/json" -Body '{"ticker": "AAPL", "shares": 5}' -WebSession $session
 ```
 
 **7. View portfolio**
 ```powershell
-curl.exe http://localhost:5000/api/portfolio/details -b cookies.txt
+Invoke-RestMethod -Uri "http://localhost:5000/api/portfolio/details" -WebSession $session
 ```
 
 **8. Check total portfolio value**
 ```powershell
-curl.exe http://localhost:5000/api/portfolio/value -b cookies.txt
+Invoke-RestMethod -Uri "http://localhost:5000/api/portfolio/value" -WebSession $session
 ```
 
 **9. Sell some shares**
 ```powershell
-$body = '{"ticker": "AAPL", "shares": 2}'
-curl.exe -X POST http://localhost:5000/api/portfolio/sell -H "Content-Type: application/json" -d $body -b cookies.txt
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/portfolio/sell" -ContentType "application/json" -Body '{"ticker": "AAPL", "shares": 2}' -WebSession $session
 ```
 
 **10. Log out**
 ```powershell
-curl.exe -X POST http://localhost:5000/api/logout -b cookies.txt
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/logout" -WebSession $session
 ```
 
 > **Note:** Portfolio holdings are stored in memory and reset when the server restarts. Persisting them to the database is a known next step.
