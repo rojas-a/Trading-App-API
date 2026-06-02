@@ -3,6 +3,7 @@ import os
 import time
 
 from sqlalchemy.exc import SQLAlchemyError
+from trading.db import db
 from trading.models.stock_model import Stocks
 from trading.utils.api_utils import get_current_price
 from trading.utils.logger import configure_logger
@@ -11,25 +12,28 @@ logger = logging.getLogger(__name__)
 configure_logger(logger)
 
 
-class PortfolioModel:
-    """
-    A class to manage a portfolio of stocks.
+class PortfolioHolding(db.Model):
+    __tablename__ = 'portfolio_holdings'
 
-    """
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(80), db.ForeignKey('users.username'), nullable=False)
+    ticker = db.Column(db.String, nullable=False)
+    shares = db.Column(db.Integer, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('username', 'ticker', name='uq_user_ticker'),)
+
+
+class PortfolioModel:
+    """Manages a portfolio of stocks backed by the database."""
 
     def __init__(self):
-        """Initializes the PortfolioModel with an empty portfolio.
-
-        portfolio (dict[str, dict[str, int]]) - A dictionary mapping usernames to their holdings,
-        where each holding maps a stock ticker to the number of shares owned.
-        The TTL (Time To Live) for stock caching is set to a default value from the environment variable "TTL",
-        which defaults to 60 seconds if not set.
-        """
-        self.portfolio: dict[str, dict[str, int]] = {}  # username -> {ticker -> shares}
         self._stock_cache: dict[str, Stocks] = {}
         self._ttl: dict[str, float] = {}
         self.ttl_seconds = int(os.getenv("TTL", 60))
 
+    def _get_holdings(self, username: str) -> dict[str, int]:
+        holdings = PortfolioHolding.query.filter_by(username=username).all()
+        return {h.ticker: h.shares for h in holdings}
 
     ##################################################
     # Stock Management Functions
@@ -50,9 +54,9 @@ class PortfolioModel:
         logger.info("Received request to calculate portfolio value")
         self.check_if_empty(username)
 
-        user_portfolio = self.portfolio[username]
+        holdings = self._get_holdings(username)
         total = 0.0
-        for ticker, quantity in user_portfolio.items():
+        for ticker, quantity in holdings.items():
             try:
                 logger.info(f"Fetching price for {ticker}")
                 price = get_current_price(ticker)
@@ -66,20 +70,8 @@ class PortfolioModel:
         logger.info(f"Successfully computed total portfolio value: ${total:.2f}")
         return total
 
-
     def _get_stock_from_cache_or_db(self, ticker: str) -> Stocks:
-        """
-        Retrieves a stock by ticker, using the internal cache if possible.
-
-        Args:
-            ticker (str): The ticker of the stock to retrieve.
-
-        Returns:
-            Stocks: The stock object corresponding to the given ticker.
-
-        Raises:
-            ValueError: If the stock cannot be found in the database.
-        """
+        """Retrieves a stock by ticker, using the internal cache if possible."""
         now = time.time()
 
         if ticker in self._stock_cache and self._ttl.get(ticker, 0) > now:
@@ -98,8 +90,7 @@ class PortfolioModel:
         return stock
 
     def get_user_portfolio(self, username: str) -> dict:
-        """
-        Retrieves and summarizes the user's portfolio.
+        """Retrieves and summarizes the user's portfolio.
 
         Args:
             username (str): Username of the portfolio owner.
@@ -110,11 +101,11 @@ class PortfolioModel:
         try:
             self.check_if_empty(username)
 
-            user_portfolio = self.portfolio[username]
+            holdings = self._get_holdings(username)
             result = []
             total_value = self.calculate_portfolio_value(username)
 
-            for ticker, quantity in user_portfolio.items():
+            for ticker, quantity in holdings.items():
                 price = get_current_price(ticker)
                 holding_value = quantity * price
 
@@ -134,15 +125,12 @@ class PortfolioModel:
             logger.error(f"Error retrieving portfolio: {e}")
             raise
 
-
     ##################################################
     # Buy / Sell Functions
     ##################################################
 
-
     def buy_stock(self, username: str, stock_symbol: str, shares: int) -> dict:
-        """
-        Enables users to purchase shares of a specified stock.
+        """Enables users to purchase shares of a specified stock.
 
         Args:
             username (str): The username of the buyer.
@@ -161,19 +149,24 @@ class PortfolioModel:
         stock_symbol = self.validate_stock_ticker(stock_symbol, check_in_portfolio=False, username=username)
         shares = self.validate_shares_count(shares)
 
-        if username not in self.portfolio:
-            self.portfolio[username] = {}
-
         try:
             price_per_share = get_current_price(stock_symbol)
         except ValueError as e:
             logger.error(f"Failed to buy stock {stock_symbol}: {e}")
             raise
 
-        if stock_symbol in self.portfolio[username]:
-            self.portfolio[username][stock_symbol] += shares
-        else:
-            self.portfolio[username][stock_symbol] = shares
+        try:
+            holding = PortfolioHolding.query.filter_by(username=username, ticker=stock_symbol).first()
+            if holding:
+                holding.shares += shares
+            else:
+                holding = PortfolioHolding(username=username, ticker=stock_symbol, shares=shares)
+                db.session.add(holding)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            logger.error(f"Database error while buying stock {stock_symbol}: {e}")
+            raise
 
         total_cost = price_per_share * shares
 
@@ -190,8 +183,7 @@ class PortfolioModel:
         return transaction_details
 
     def sell_stock(self, username: str, stock_symbol: str, shares: int) -> dict:
-        """
-        Allows users to sell shares of a stock they currently hold.
+        """Allows users to sell shares of a stock they currently hold.
 
         Args:
             username (str): The username of the seller.
@@ -213,15 +205,17 @@ class PortfolioModel:
         stock_symbol = self.validate_stock_ticker(stock_symbol, username=username)
         shares = self.validate_shares_count(shares)
 
-        user_portfolio = self.portfolio.get(username, {})
+        holding = PortfolioHolding.query.filter_by(username=username, ticker=stock_symbol).first()
 
-        if stock_symbol not in user_portfolio:
+        if not holding:
             logger.error(f"Stock {stock_symbol} not found in portfolio")
             raise ValueError(f"You don't own any shares of {stock_symbol}")
 
-        if user_portfolio[stock_symbol] < shares:
+        if holding.shares < shares:
             logger.error(f"Insufficient shares of {stock_symbol} in portfolio")
-            raise ValueError(f"You only have {user_portfolio[stock_symbol]} shares of {stock_symbol}, but attempted to sell {shares}")
+            raise ValueError(
+                f"You only have {holding.shares} shares of {stock_symbol}, but attempted to sell {shares}"
+            )
 
         try:
             price_per_share = get_current_price(stock_symbol)
@@ -229,10 +223,15 @@ class PortfolioModel:
             logger.error(f"Failed to sell stock {stock_symbol}: {e}")
             raise
 
-        self.portfolio[username][stock_symbol] -= shares
-
-        if self.portfolio[username][stock_symbol] == 0:
-            del self.portfolio[username][stock_symbol]
+        try:
+            holding.shares -= shares
+            if holding.shares == 0:
+                db.session.delete(holding)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            logger.error(f"Database error while selling stock {stock_symbol}: {e}")
+            raise
 
         total = price_per_share * shares
 
@@ -248,14 +247,12 @@ class PortfolioModel:
         logger.info(f"Successfully sold {shares} shares of {stock_symbol} at ${price_per_share:.2f} per share")
         return transaction_details
 
-
     ##################################################
     # Utility Functions
     ##################################################
 
     def validate_stock_ticker(self, ticker: str, check_in_portfolio: bool = True, username: str = "") -> str:
-        """
-        Validates the given stock ticker.
+        """Validates the given stock ticker.
 
         Args:
             ticker (str): The stock ticker to validate.
@@ -270,8 +267,8 @@ class PortfolioModel:
                         or not found in the database.
         """
         if check_in_portfolio:
-            user_portfolio = self.portfolio.get(username, {})
-            if ticker not in user_portfolio:
+            holding = PortfolioHolding.query.filter_by(username=username, ticker=ticker).first()
+            if not holding:
                 logger.error(f"Stock {ticker} not found in portfolio")
                 raise ValueError(f"Stock {ticker} not found in portfolio")
 
@@ -284,8 +281,7 @@ class PortfolioModel:
         return ticker
 
     def validate_shares_count(self, shares: int) -> int:
-        """
-        Validates that the number of shares is a positive integer.
+        """Validates that the number of shares is a positive integer.
 
         Args:
             shares: The number of shares to validate.
@@ -307,8 +303,7 @@ class PortfolioModel:
         return shares
 
     def check_if_empty(self, username: str) -> None:
-        """
-        Checks if the user's portfolio is empty and raises a ValueError if it is.
+        """Checks if the user's portfolio is empty and raises a ValueError if it is.
 
         Args:
             username (str): The username whose portfolio to check.
@@ -316,7 +311,7 @@ class PortfolioModel:
         Raises:
             ValueError: If the portfolio is empty.
         """
-        user_portfolio = self.portfolio.get(username, {})
-        if not user_portfolio:
+        holding = PortfolioHolding.query.filter_by(username=username).first()
+        if not holding:
             logger.error("Portfolio is empty")
             raise ValueError("Portfolio is empty")

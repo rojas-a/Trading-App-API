@@ -1,7 +1,5 @@
 import pytest
-from flask import Flask
-from trading.utils.api_utils import StockAPI
-from app import create_app  
+from app import create_app
 
 MOCK_PRICE = 123.45
 
@@ -10,7 +8,7 @@ MOCK_PRICE = 123.45
 def app():
     app = create_app()
     app.config["TESTING"] = True
-    app.config["LOGIN_DISABLED"] = True 
+    app.config["LOGIN_DISABLED"] = True
     yield app
 
 
@@ -21,7 +19,8 @@ def client(app):
 
 @pytest.fixture
 def mock_get_price(mocker):
-    return mocker.patch.object(StockAPI, "get_current_price", return_value=MOCK_PRICE)
+    # Patch the name as imported in app.py's module namespace
+    return mocker.patch('app.get_current_price', return_value=MOCK_PRICE)
 
 
 def test_get_stock_price_success(client, mock_get_price):
