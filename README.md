@@ -73,8 +73,6 @@ Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/portfolio/sell" -
 Invoke-RestMethod -Method POST -Uri "http://localhost:5000/api/logout" -WebSession $session
 ```
 
-> **Note:** Portfolio holdings are stored in memory and reset when the server restarts. Persisting them to the database is a known next step.
-
 ---
 
 ### Route: `/api/health`
